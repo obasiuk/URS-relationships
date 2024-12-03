@@ -1,23 +1,19 @@
 import pandas as pd
-from tkinter import Tk, Label, Entry, Button, StringVar, Text, Scrollbar, VERTICAL, END
+from tkinter import Tk, Label, Entry, Button, StringVar, Text, Scrollbar, VERTICAL, END, filedialog, OptionMenu, Toplevel, messagebox
 import matplotlib.pyplot as plt
 
 
-# LOAD DATA
 def load_data(file_path):
     data = pd.read_csv(file_path)
-    data['LastLogin'] = pd.to_datetime(data['LastLogin'])  # Convert 'LastLogin' column to datetime
+    data['LastLogin'] = pd.to_datetime(data['LastLogin'])
     return data
 
 
-# FIND INACTIVE USERS
 def find_inactive_users(data, days=90):
     threshold_date = pd.Timestamp.now() - pd.Timedelta(days=days)
-    inactive_users = data[data['LastLogin'] < threshold_date]
-    return inactive_users
+    return data[data['LastLogin'] < threshold_date]
 
 
-# REPORT 1
 def generate_report(data, output_path, inactive_users):
     with open(output_path, 'w') as file:
         file.write('Analytical Report\n')
@@ -30,7 +26,6 @@ def generate_report(data, output_path, inactive_users):
             file.write("\nNo inactive users found.")
 
 
-# PLOT DATA
 def plot_inactive_users_by_system(inactive_users):
     system_counts = inactive_users['System'].value_counts()
     system_counts.plot(kind='barh', figsize=(8, 6), title='Inactive Users by System')
@@ -40,35 +35,58 @@ def plot_inactive_users_by_system(inactive_users):
     plt.show()
 
 
-# FIND USER BY UserID
 def find_user_data(data, user_id):
-    user_data = data[data['UserID'] == user_id]
-    return user_data
+    return data[data['UserID'] == user_id]
 
 
-# LOG MESSAGES
 def log_message(message):
     log_text.insert(END, message + "\n")
     log_text.see(END)
 
-# CLEAR WINDOW
-def clear_logs():
-    log_text.delete(1.0, END)  # Delete all text from the log area
 
-# BUTTON HUNDLERS
+def clear_logs():
+    log_text.delete(1.0, END)
+
+
+def upload_file():
+    global data, systems
+    file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
+    if file_path:
+        try:
+            data = load_data(file_path)
+            systems = sorted(data['System'].unique())
+            system_var.set("Select System")
+            menu = system_menu["menu"]
+            menu.delete(0, "end")
+            for system in systems:
+                menu.add_command(label=system, command=lambda value=system: system_var.set(value))
+            log_message(f"File uploaded successfully: {file_path}")
+        except Exception as e:
+            log_message(f"Error loading file: {e}")
+
+
 def on_generate_report_click():
+    if data is None:
+        log_message("No data uploaded. Please upload a file first.")
+        return
     inactive_users = find_inactive_users(data)
     generate_report(data, 'report.txt', inactive_users)
     log_message("Report successfully generated: report.txt")
 
 
 def on_plot_click():
+    if data is None:
+        log_message("No data uploaded. Please upload a file first.")
+        return
     inactive_users = find_inactive_users(data)
     log_message("Generating plot...")
     plot_inactive_users_by_system(inactive_users)
 
 
 def on_search_user_click():
+    if data is None:
+        log_message("No data uploaded. Please upload a file first.")
+        return
     user_id = user_input.get()
     if not user_id:
         log_message("Please enter a UserID.")
@@ -82,28 +100,57 @@ def on_search_user_click():
                 log_message(f"  - System: {row['System']}, Role: {row['Role']}, Last Login: {row['LastLogin'].date()}")
 
 
-# MY CODE
-if __name__ == "__main__":
-    file_path = 'users_access.csv'  # Specify the path to your file
-    data = load_data(file_path)
+def on_choose_system():
+    if data is None:
+        messagebox.showerror("Error", "No data uploaded. Please upload a file first.")
+        return
+    selected_system = system_var.get()
+    if selected_system == "Select System":
+        messagebox.showinfo("Info", "Please select a system.")
+        return
+    users = data[data['System'] == selected_system]
+    if users.empty:
+        messagebox.showinfo("Info", f"No users found for system '{selected_system}'.")
+    else:
+        show_users_in_dialog(users, selected_system)
 
-    # Configure the Tkinter window
+
+def show_users_in_dialog(users, system_name):
+    dialog = Toplevel(root)
+    dialog.title(f"Users with access to {system_name}")
+    dialog.geometry("400x300")
+    text = Text(dialog, wrap='word')
+    text.pack(expand=True, fill='both')
+    for index, row in users.iterrows():
+        text.insert(END, f"{row['UserID']} - {row['First Name']} {row['Last Name']} - {row['Role']} - Last Login: {row['LastLogin'].date()}\n")
+
+
+if __name__ == "__main__":
+    data = None
+    systems = []
+
     root = Tk()
     root.title("User Access Manager")
-    root.geometry("500x550")
+    root.geometry("600x700")
 
-    # UserID input field
+    Button(root, text="Upload User Data", command=upload_file).pack(pady=5)
+
     Label(root, text="Enter UserID for lookup:").pack(pady=5)
     user_input = StringVar()
     Entry(root, textvariable=user_input, width=50).pack(pady=5)
 
-    # Buttons
-    Button(root, text="Generate Report", command=on_generate_report_click).pack(pady=5)
-    Button(root, text="Plot Inactive Users", command=on_plot_click).pack(pady=5)
     Button(root, text="Search User by UserID", command=on_search_user_click).pack(pady=5)
 
+    Button(root, text="Generate Report", command=on_generate_report_click).pack(pady=5)
+    Button(root, text="Plot Inactive Users", command=on_plot_click).pack(pady=5)
 
-    # Log text area with scrollbar
+    Label(root, text="Choose System:").pack(pady=5)
+    system_var = StringVar()
+    system_var.set("Select System")
+    system_menu = OptionMenu(root, system_var, "Select System")
+    system_menu.pack(pady=5)
+    Button(root, text="Show Users for System", command=on_choose_system).pack(pady=5)
+
     log_text = Text(root, height=15, width=70, wrap='word')
     log_scrollbar = Scrollbar(root, orient=VERTICAL, command=log_text.yview)
     log_text.config(yscrollcommand=log_scrollbar.set)
@@ -112,5 +159,4 @@ if __name__ == "__main__":
 
     Button(root, text="Clear Logs", command=clear_logs).pack(pady=5)
 
-    # Run the Tkinter application
     root.mainloop()
