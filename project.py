@@ -1,5 +1,5 @@
 import pandas as pd
-from tkinter import Tk, Label, Entry, Button, StringVar, Text, Scrollbar, VERTICAL, END, filedialog, OptionMenu, Toplevel, messagebox
+from tkinter import Tk, Label, Entry, Button, StringVar, Text, Scrollbar, VERTICAL, END, filedialog, OptionMenu, Frame, DISABLED, NORMAL
 import matplotlib.pyplot as plt
 
 
@@ -21,7 +21,7 @@ def generate_report(data, output_path, inactive_users):
         file.write(f'Inactive users (not active for more than 90 days): {len(inactive_users)}\n')
         if not inactive_users.empty:
             file.write("\nList of inactive users:\n")
-            file.write(inactive_users[['UserID', 'First Name', 'Last Name', 'System', 'LastLogin']].to_string(index=False))
+            file.write(inactive_users[['UserID', 'First Name', 'Last Name', 'System', 'Role', 'LastLogin']].to_string(index=False))
         else:
             file.write("\nNo inactive users found.")
 
@@ -61,8 +61,29 @@ def upload_file():
             for system in systems:
                 menu.add_command(label=system, command=lambda value=system: system_var.set(value))
             log_message(f"File uploaded successfully: {file_path}")
+            enable_fields_and_buttons()
         except Exception as e:
             log_message(f"Error loading file: {e}")
+
+
+def enable_fields_and_buttons():
+    btn_generate_report.config(state=NORMAL)
+    btn_plot.config(state=NORMAL)
+    btn_search_user.config(state=NORMAL)
+    btn_show_users.config(state=NORMAL)
+    btn_clear_logs.config(state=NORMAL)
+    entry_user_id.config(state=NORMAL)
+    system_menu.config(state=NORMAL)
+
+
+def disable_fields_and_buttons():
+    btn_generate_report.config(state=DISABLED)
+    btn_plot.config(state=DISABLED)
+    btn_search_user.config(state=DISABLED)
+    btn_show_users.config(state=DISABLED)
+    btn_clear_logs.config(state=DISABLED)
+    entry_user_id.config(state=DISABLED)
+    system_menu.config(state=DISABLED)
 
 
 def on_generate_report_click():
@@ -97,33 +118,29 @@ def on_search_user_click():
         else:
             log_message(f"User data for UserID '{user_id}':")
             for index, row in user_data.iterrows():
-                log_message(f"  - System: {row['System']}, Role: {row['Role']}, Last Login: {row['LastLogin'].date()}")
+                log_message(f"  - System: {row['System']}, Role: {row['Role']}")
 
 
 def on_choose_system():
+    global log_text
     if data is None:
-        messagebox.showerror("Error", "No data uploaded. Please upload a file first.")
+        log_message("No data uploaded. Please upload a file first.")
         return
     selected_system = system_var.get()
     if selected_system == "Select System":
-        messagebox.showinfo("Info", "Please select a system.")
+        log_message("Please select a system.")
         return
     users = data[data['System'] == selected_system]
     if users.empty:
-        messagebox.showinfo("Info", f"No users found for system '{selected_system}'.")
+        log_message(f"No users found for system '{selected_system}'.")
     else:
-        show_users_in_dialog(users, selected_system)
+        log_message(f"Users with access to system '{selected_system}':")
+        log_message(f"{'UserID':<15} {'Role':<20}")
+        log_message(f"{'-'*35}")
+        for index, row in users.iterrows():
+            log_message(f"{row['UserID']:<15} {row['Role']:<20}")
 
-
-def show_users_in_dialog(users, system_name):
-    dialog = Toplevel(root)
-    dialog.title(f"Users with access to {system_name}")
-    dialog.geometry("400x300")
-    text = Text(dialog, wrap='word')
-    text.pack(expand=True, fill='both')
-    for index, row in users.iterrows():
-        text.insert(END, f"{row['UserID']} - {row['First Name']} {row['Last Name']} - {row['Role']} - Last Login: {row['LastLogin'].date()}\n")
-
+    log_text.yview_moveto(0.0)
 
 if __name__ == "__main__":
     data = None
@@ -137,26 +154,44 @@ if __name__ == "__main__":
 
     Label(root, text="Enter UserID for lookup:").pack(pady=5)
     user_input = StringVar()
-    Entry(root, textvariable=user_input, width=50).pack(pady=5)
+    entry_user_id = Entry(root, textvariable=user_input, width=50, state=DISABLED)
+    entry_user_id.pack(pady=5)
 
-    Button(root, text="Search User by UserID", command=on_search_user_click).pack(pady=5)
-
-    Button(root, text="Generate Report", command=on_generate_report_click).pack(pady=5)
-    Button(root, text="Plot Inactive Users", command=on_plot_click).pack(pady=5)
+    btn_search_user = Button(root, text="Search User by UserID", command=on_search_user_click, state=DISABLED)
+    btn_search_user.pack(pady=5)
 
     Label(root, text="Choose System:").pack(pady=5)
     system_var = StringVar()
     system_var.set("Select System")
     system_menu = OptionMenu(root, system_var, "Select System")
+    system_menu.config(state=DISABLED)
     system_menu.pack(pady=5)
-    Button(root, text="Show Users for System", command=on_choose_system).pack(pady=5)
 
-    log_text = Text(root, height=15, width=70, wrap='word')
-    log_scrollbar = Scrollbar(root, orient=VERTICAL, command=log_text.yview)
+    btn_show_users = Button(root, text="Show Users for System", command=on_choose_system, state=DISABLED)
+    btn_show_users.pack(pady=5)
+
+    btn_generate_report = Button(root, text="Generate Report Inactive Users", command=on_generate_report_click, state=DISABLED)
+    btn_generate_report.pack(pady=5)
+
+    btn_plot = Button(root, text="Plot Inactive Users", command=on_plot_click, state=DISABLED)
+    btn_plot.pack(pady=5)
+
+    log_frame = Frame(root)
+    log_frame.pack(pady=10, fill='both', expand=True)
+
+    left_spacer = Frame(log_frame, width=15)
+    left_spacer.pack(side='left', fill='y')
+
+    log_text = Text(log_frame, height=15, width=70, wrap='word')
+    log_scrollbar = Scrollbar(log_frame, orient=VERTICAL, command=log_text.yview)
     log_text.config(yscrollcommand=log_scrollbar.set)
-    log_text.pack(pady=10)
+
+    log_text.pack(side='left', fill='both', expand=True)
     log_scrollbar.pack(side='right', fill='y')
 
-    Button(root, text="Clear Logs", command=clear_logs).pack(pady=5)
+    btn_clear_logs = Button(root, text="Clear Logs", command=clear_logs, state=DISABLED)
+    btn_clear_logs.pack(pady=(5, 20))
+
+    disable_fields_and_buttons()
 
     root.mainloop()
