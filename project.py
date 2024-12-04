@@ -150,7 +150,7 @@ if __name__ == "__main__":
     root.title("User Access Manager")
     root.geometry("600x700")
 
-    Button(root, text="Upload User Data", command=upload_file).pack(pady=5)
+    Button(root, text="Upload User Data", command=upload_file).pack(pady=20)
 
     Label(root, text="Enter UserID for lookup:").pack(pady=5)
     user_input = StringVar()
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     btn_search_user = Button(root, text="Search User by UserID", command=on_search_user_click, state=DISABLED)
     btn_search_user.pack(pady=5)
 
-    Label(root, text="Choose System:").pack(pady=5)
+    Label(root, text="Choose System:").pack(pady=(25, 5))
     system_var = StringVar()
     system_var.set("Select System")
     system_menu = OptionMenu(root, system_var, "Select System")
@@ -168,13 +168,13 @@ if __name__ == "__main__":
     system_menu.pack(pady=5)
 
     btn_show_users = Button(root, text="Show Users for System", command=on_choose_system, state=DISABLED)
-    btn_show_users.pack(pady=5)
+    btn_show_users.pack(pady=(5, 25))
 
     btn_generate_report = Button(root, text="Generate Report Inactive Users", command=on_generate_report_click, state=DISABLED)
     btn_generate_report.pack(pady=5)
 
     btn_plot = Button(root, text="Plot Inactive Users", command=on_plot_click, state=DISABLED)
-    btn_plot.pack(pady=5)
+    btn_plot.pack(pady=(5,20))
 
     log_frame = Frame(root)
     log_frame.pack(pady=10, fill='both', expand=True)
